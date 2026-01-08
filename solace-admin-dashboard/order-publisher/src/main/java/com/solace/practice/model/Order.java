@@ -67,33 +67,3 @@ public class Order {
                 orderId, customerId, productId, totalAmount, status, region);
     }
 }
-```
-
----
-
-## 💡 Why These Fields?
-
-| Field | Purpose | Used In Topic? |
-|-------|---------|----------------|
-| `orderId` | Unique identifier | No - in payload |
-| `customerId` | Who ordered | No - in payload |
-| `productId` | What they bought | No - in payload |
-| `quantity` | How many | No - in payload |
-| `totalAmount` | Price | No - but used in **message selector** |
-| `status` | Lifecycle state | **YES** - `order/v1/*/PAID/*` |
-| `region` | Geographic area | **YES** - `order/v1/US-EAST/*/*` |
-| `priority` | NORMAL/HIGH/URGENT | **YES** - `order/v1/*/*/URGENT` |
-| `createdAt` | Timestamp | No - in payload |
-
----
-
-## 🎯 Key Design Pattern
-
-**Topic hierarchy for ROUTING:**
-```
-order/v1/{region}/{status}/{priority}
-```
-
-**Message properties for FILTERING:**
-```
-totalAmount > 1000    ← Message selector

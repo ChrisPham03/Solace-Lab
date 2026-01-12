@@ -12,89 +12,63 @@ import java.util.UUID;
 
 public class OrderPublisher {
 
-    // JSON converter - turns Order objects into JSON strings
     private static final ObjectMapper objectMapper = new ObjectMapper()
             .registerModule(new JavaTimeModule());
-    
-    // Random generator for test data
+
     private static final Random random = new Random();
-    
-    // Test data arrays
+
     private static final String[] REGIONS = {"US-EAST", "US-WEST", "EU", "ASIA"};
     private static final String[] PRIORITIES = {"NORMAL", "HIGH", "URGENT"};
     private static final String[] PRODUCTS = {"Laptop", "Mouse", "Keyboard", "Monitor", "Headphones"};
 
-
     public static void main(String[] args) {
+
         System.out.println("=== Order Publisher Starting ===");
 
         JCSMPSession session = null;
 
         try {
-            // ============================================================
-            // STEP 1: CREATE CONNECTION PROPERTIES
-            // ============================================================
-            // This tells Solace WHERE to connect and WHO you are
-
+            // Step 1: Create properties object
             JCSMPProperties properties = new JCSMPProperties();
-            properties.setProperty(JCSMPProperties.HOST, "localhost:55556");  // Our Docker port
-            properties.setProperty(JCSMPProperties.VPN_NAME, "default");      // Virtual broker
+
+            // Step 2: Set connection properties
+            properties.setProperty(JCSMPProperties.HOST, "localhost:55556");
+            properties.setProperty(JCSMPProperties.VPN_NAME, "default");
             properties.setProperty(JCSMPProperties.USERNAME, "admin");
             properties.setProperty(JCSMPProperties.PASSWORD, "admin");
 
             System.out.println("Connecting to Solace broker...");
 
-            // ============================================================
-            // STEP 2: CREATE AND CONNECT SESSION
-            // ============================================================
-            // Session = your connection to the broker
-
+            // Step 3: Create session and connect
             session = JCSMPFactory.onlyInstance().createSession(properties);
             session.connect();
 
-            System.out.println("✓ Connected successfully!");
+            System.out.println("✓ Connected to Solace!");
 
-            // ============================================================
-            // STEP 3: CREATE MESSAGE PRODUCER
-            // ============================================================
-            // Producer = the thing that sends messages
+            // Step 4: Create producer with callback handler
+            XMLMessageProducer producer = session.getMessageProducer(
+                    new JCSMPStreamingPublishEventHandler() {
+                        @Override
+                        public void responseReceived(String messageID) {
+                            System.out.println("  ✓ Broker confirmed: " + messageID);
+                        }
 
-            XMLMessageProducer producer = session.getMessageProducer(new JCSMPStreamingPublishEventHandler() {
-                @Override
-                public void responseReceivedEx(Object messageID) {
-                    // Broker confirmed it received our message
-                    System.out.println("  ✓ Broker confirmed: " + messageID);
-                }
-
-                @Override
-                public void handleErrorEx(Object messageID, JCSMPException cause, long timestamp) {
-                    // Something went wrong
-                    System.out.println("  ✗ Error: " + cause.getMessage());
-                }
-            });
+                        @Override
+                        public void handleError(String messageID, JCSMPException cause, long timestamp) {
+                            System.out.println("  ✗ Error: " + cause.getMessage());
+                        }
+                    }
+            );
 
             System.out.println("✓ Producer created!");
-            System.out.println("\nPublishing orders (Ctrl+C to stop)...\n");
-
-            // ============================================================
-            // STEP 4: PUBLISH MESSAGES IN A LOOP
-            // ============================================================
-
-            for (int i = 0; i < 10; i++) {
-                Order order = createRandomOrder();
-                publishOrder(producer, order);
-                Thread.sleep(2000);  // Wait 2 seconds between orders
-            }
-
-            System.out.println("\n=== Published 10 orders! ===");
+            System.out.println("\n=== Connection test successful! ===\n");
 
         } catch (Exception e) {
             System.out.println("Error: " + e.getMessage());
             e.printStackTrace();
+
         } finally {
-            // ============================================================
-            // STEP 5: CLEANUP - Always close your connection!
-            // ============================================================
+            // Step 5: Cleanup
             if (session != null) {
                 session.closeSession();
                 System.out.println("Session closed.");
